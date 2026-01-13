@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Shadow Shankz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    body {
+      margin: 0;
+      background: #f5f1e6; /* desert tone */
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="game"></canvas>
+
+  <script>
+    /* ======================
+       Canvas Setup
+    ====================== */
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = 400;
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    /* ======================
+       Game Constants
+    ====================== */
+    const groundY = 320;
+    const gravity = 0.8;
+    const jumpForce = -14;
+    const gameSpeed = 6;
+
+    /* ======================
+       Ninja (Player)
+    ====================== */
+    const ninja = {
+      x: 80,
+      y: groundY,
+      width: 40,
+      height: 60,
+      vy: 0,
+      jumping: false
+    };
+
+    /* ======================
+       Input
+    ====================== */
+    function triggerJump() {
+      if (!ninja.jumping) {
+        ninja.vy = jumpForce;
+        ninja.jumping = true;
+      }
+    }
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" || e.code === "ArrowUp") {
+        triggerJump();
+      }
+    });
+
+    window.addEventListener("touchstart", () => {
+      triggerJump();
+    });
+
+    /* ======================
+       Obstacles
+    ====================== */
+    const obstacles = [];
+    let obstacleTimer = 0;
+
+    function spawnObstacle() {
+      obstacles.push({
+        x: canvas.width,
+        y: groundY + 20,
+        width: 30,
+        height: 40
+      });
+    }
+
+    /* ======================
+       Background (Moving Ground)
+    ====================== */
+    let groundOffset = 0;
+
+    /* ======================
+       Collision Detection
+    ====================== */
+    function isColliding(a, b) {
+      return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+      );
+    }
+
+    /* ======================
+       Update Loop
+    ====================== */
+    function update() {
+      // Ninja physics
+      ninja.vy += gravity;
+      ninja.y += ninja.vy;
+
+      if (ninja.y >= groundY) {
+        ninja.y = groundY;
+        ninja.vy = 0;
+        ninja.jumping = false;
+      }
+
+      // Ground scroll
+      groundOffset -= gameSpeed;
+      if (groundOffset < -40) groundOffset = 0;
+
+      // Obstacles
+      obstacleTimer++;
+      if (obstacleTimer > 90) {
+        spawnObstacle();
+        obstacleTimer = 0;
+      }
+
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        obstacles[i].x -= gameSpeed;
+
+        // Remove off-screen
+        if (obstacles[i].x + obstacles[i].width < 0) {
+          obstacles.splice(i, 1);
+        }
+
+        // Collision
+        if (isColliding(ninja, obstacles[i])) {
+          alert("Game Over");
+          location.reload();
+        }
+      }
+    }
+
+    /* ======================
+       Draw Loop
+    ====================== */
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Background sky
+      ctx.fillStyle = "#f5f1e6";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Ground
+      ctx.strokeStyle = "#aaa";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < canvas.width / 40 + 2; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * 40 + groundOffset, groundY + ninja.height);
+        ctx.lineTo(i * 40 + groundOffset + 20, groundY + ninja.height);
+        ctx.stroke();
+      }
+
+      // Ninja
+      ctx.fillStyle = "#000";
+      ctx.fillRect(ninja.x, ninja.y, ninja.width, ninja.height);
+
+      // Obstacles
+      ctx.fillStyle = "#333";
+      obstacles.forEach((obs) => {
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+      });
+
+      update();
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  </script>
+</body>
+</html>
