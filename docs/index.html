@@ -4,11 +4,10 @@
   <meta charset="UTF-8" />
   <title>Shadow Shankz</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
   <style>
     body {
       margin: 0;
-      background: #f5f1e6; /* desert tone */
+      background: #f5f1e6;
       overflow: hidden;
     }
     canvas {
@@ -18,99 +17,229 @@
 </head>
 
 <body>
-  <canvas id="game"></canvas>
+<canvas id="game"></canvas>
 
-  <script>
-    /* ======================
-       Canvas Setup
-    ====================== */
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
+<script>
+/* ======================
+   Canvas Setup
+====================== */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-    function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = 400;
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = 400;
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* ======================
+   Constants
+====================== */
+const groundY = 320;
+const gravity = 0.8;
+const jumpForce = -14;
+const doubleJumpForce = -12;
+
+let baseSpeed = 6;
+let gameSpeed = baseSpeed;
+let speedTimer = 0;
+let groundOffset = 0;
+
+/* ======================
+   Game State
+====================== */
+const STATE = {
+  RUNNING: "RUNNING",
+  GAME_OVER: "GAME_OVER"
+};
+let gameState = STATE.RUNNING;
+
+/* ======================
+   Ninja
+====================== */
+const ninja = {
+  x: 80,
+  y: groundY,
+  width: 40,
+  height: 60,
+  vy: 0,
+  jumping: false,
+  canDoubleJump: true,
+  rotation: 0
+};
+
+/* ======================
+   Obstacles
+====================== */
+const obstacles = [];
+let obstacleTimer = 0;
+
+function spawnObstacle() {
+  obstacles.push({
+    x: canvas.width,
+    y: groundY + 20,
+    width: 30,
+    height: 40
+  });
+}
+
+/* ======================
+   Input
+====================== */
+function handleAction() {
+  if (gameState === STATE.GAME_OVER) {
+    restartGame();
+    return;
+  }
+
+  if (!ninja.jumping) {
+    ninja.vy = jumpForce;
+    ninja.jumping = true;
+  } else if (ninja.canDoubleJump) {
+    ninja.vy = doubleJumpForce;
+    ninja.canDoubleJump = false;
+  }
+}
+
+window.addEventListener("keydown", e => {
+  if (e.code === "Space" || e.code === "ArrowUp") {
+    handleAction();
+  }
+});
+
+window.addEventListener("touchstart", handleAction);
+
+/* ======================
+   Collision
+====================== */
+function isColliding(a, b) {
+  return (
+    a.x < b.x + b.width &&
+    a.x + a.width > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.height > b.y
+  );
+}
+
+/* ======================
+   Restart
+====================== */
+function restartGame() {
+  obstacles.length = 0;
+  obstacleTimer = 0;
+  speedTimer = 0;
+  gameSpeed = baseSpeed;
+
+  ninja.y = groundY;
+  ninja.vy = 0;
+  ninja.jumping = false;
+  ninja.canDoubleJump = true;
+  ninja.rotation = 0;
+
+  gameState = STATE.RUNNING;
+}
+
+/* ======================
+   Update
+====================== */
+function update() {
+  if (gameState !== STATE.RUNNING) return;
+
+  // Progressive speed
+  speedTimer++;
+  if (speedTimer > 300 && gameSpeed < 14) {
+    gameSpeed += 0.2;
+    speedTimer = 0;
+  }
+
+  // Physics
+  ninja.vy += gravity;
+  ninja.y += ninja.vy;
+
+  if (!ninja.canDoubleJump) {
+    ninja.rotation += 0.3; // flip speed
+  }
+
+  if (ninja.y >= groundY) {
+    ninja.y = groundY;
+    ninja.vy = 0;
+    ninja.jumping = false;
+    ninja.canDoubleJump = true;
+    ninja.rotation = 0;
+  }
+
+  // Obstacles
+  obstacleTimer++;
+  if (obstacleTimer > 90) {
+    spawnObstacle();
+    obstacleTimer = 0;
+  }
+
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    obstacles[i].x -= gameSpeed;
+
+    if (obstacles[i].x + obstacles[i].width < 0) {
+      obstacles.splice(i, 1);
     }
-    window.addEventListener("resize", resize);
-    resize();
 
-    /* ======================
-       Game Constants
-    ====================== */
-    const groundY = 320;
-    const gravity = 0.8;
-    const jumpForce = -14;
-
-    /* ======================
-       Ninja (Placeholder)
-    ====================== */
-    const ninja = {
-      x: 80,
-      y: groundY,
-      width: 40,
-      height: 60,
-      vy: 0,
-      jumping: false
-    };
-
-    /* ======================
-       Input Handling
-    ====================== */
-    function triggerJump() {
-      if (!ninja.jumping) {
-        ninja.vy = jumpForce;
-        ninja.jumping = true;
-      }
+    if (isColliding(ninja, obstacles[i])) {
+      gameState = STATE.GAME_OVER;
     }
+  }
 
-    // Keyboard
-    window.addEventListener("keydown", (e) => {
-      if (e.code === "Space" || e.code === "ArrowUp") {
-        triggerJump();
-      }
-    });
+  groundOffset -= gameSpeed;
+  if (groundOffset < -40) groundOffset = 0;
+}
 
-    // Touch (mobile / tablet)
-    window.addEventListener("touchstart", () => {
-      triggerJump();
-    });
+/* ======================
+   Draw
+====================== */
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    /* ======================
-       Update Loop
-    ====================== */
-    function update() {
-      ninja.vy += gravity;
-      ninja.y += ninja.vy;
+  // Background
+  ctx.fillStyle = "#f5f1e6";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      if (ninja.y >= groundY) {
-        ninja.y = groundY;
-        ninja.vy = 0;
-        ninja.jumping = false;
-      }
-    }
+  // Ground
+  ctx.strokeStyle = "#aaa";
+  for (let i = 0; i < canvas.width / 40 + 2; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * 40 + groundOffset, groundY + ninja.height);
+    ctx.lineTo(i * 40 + groundOffset + 20, groundY + ninja.height);
+    ctx.stroke();
+  }
 
-    /* ======================
-       Draw Loop
-    ====================== */
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Ninja (with rotation)
+  ctx.save();
+  ctx.translate(ninja.x + ninja.width / 2, ninja.y + ninja.height / 2);
+  ctx.rotate(ninja.rotation);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(-ninja.width / 2, -ninja.height / 2, ninja.width, ninja.height);
+  ctx.restore();
 
-      // Ground line
-      ctx.strokeStyle = "#999";
-      ctx.beginPath();
-      ctx.moveTo(0, groundY + ninja.height);
-      ctx.lineTo(canvas.width, groundY + ninja.height);
-      ctx.stroke();
+  // Obstacles
+  ctx.fillStyle = "#333";
+  obstacles.forEach(o =>
+    ctx.fillRect(o.x, o.y, o.width, o.height)
+  );
 
-      // Ninja placeholder
-      ctx.fillStyle = "#000";
-      ctx.fillRect(ninja.x, ninja.y, ninja.width, ninja.height);
+  // Game Over
+  if (gameState === STATE.GAME_OVER) {
+    ctx.fillStyle = "#000";
+    ctx.font = "24px system-ui";
+    ctx.textAlign = "center";
+    ctx.fillText("Game Over", canvas.width / 2, 160);
+    ctx.font = "16px system-ui";
+    ctx.fillText("Tap / Space to Restart", canvas.width / 2, 190);
+  }
 
-      update();
-      requestAnimationFrame(draw);
-    }
+  update();
+  requestAnimationFrame(draw);
+}
 
-    draw();
-  </script>
+draw();
+</script>
 </body>
 </html>
